@@ -15,8 +15,8 @@ def add_scheduled_task(start_time, frequency):
         taskDef = scheduler.NewTask(0)
         taskDef.RegistrationInfo.Description = task_name
 
-        # Obter o caminho do executável pythonw.exe do ambiente virtual
-        pythonw_exe = os.path.join(sys.prefix, 'Scripts', 'pythonw.exe')
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        pythonw_exe = os.path.abspath(os.path.join(script_dir, "..", "venv", "Scripts", "pythonw.exe"))
 
         # Configurar a ação do script
         execAction = taskDef.Actions.Create(0)

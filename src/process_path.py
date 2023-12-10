@@ -36,41 +36,41 @@ def organize_xml(folder, folder_download, rename):
     downloaded_ids = get_downloaded_ids(folder_download)
 
     c.print('\n')
-    c.rule('Baixando XML\n', style='#9400d3')
+    c.rule('Organizando XML\n', style='#9400d3')
     c.print('\n')
     count = 0
 
     for pasta, subpastas, files in os.walk(folder):
         for filename in files:
             if filename.lower().endswith(".xml"):
-                xml = ProcessXml(path=os.path.join(pasta, filename))
-                xml_id = xml.extract_item_id()
-                xml_emissor = xml.extract_emissor_name()
-                xml_ano = xml.extract_year_from_xml()
-                xml_mes = xml.extract_mes()
+                try:
+                    xml = ProcessXml(path=os.path.join(pasta, filename))
+                    xml_id = xml.extract_item_id()
+                    xml_emissor = xml.extract_emissor_name()
+                    xml_ano = xml.extract_year_from_xml()
+                    xml_mes = xml.extract_mes()
 
-                path_emissor = folder_download + f'\\{xml_emissor}'
-                path_ano = path_emissor + f'\\{xml_ano}'
-                path_mes = path_ano + f'\\{xml_mes}'
-            
-            try:
-                if xml_id not in downloaded_ids:
-                    if not os.path.exists(os.path.join(folder_download, xml_emissor)):
-                        os.makedirs(path_emissor)
+                    path_emissor = os.path.join(folder_download, xml_emissor)
+                    path_ano = os.path.join(path_emissor, xml_ano)
+                    path_mes = os.path.join(path_ano, xml_mes)
 
-                        if not os.path.exists(os.path.join(path_emissor, xml_ano)):
-                            os.makedirs(path_ano)
+                    # Criar caminho para o arquivo de destino
+                    dest_path = os.path.join(path_mes, f'{xml_id}.xml')
 
-                            if not os.path.exists(os.path.join(path_ano, xml_mes)):
-                                os.makedirs(path_mes)
-                    
-                if os.path.exists(path_mes):
-                    move(os.path.join(pasta, filename), path_mes)
-                    if rename == 'True': os.rename(os.path.join(path_mes, filename), os.path.join(path_mes, f'{xml_id}.xml'))
-                    c.print(f'[magenta]{xml_id}[/] - [green]Organizado[/]')
-                    count += 1
-            except Exception as e:
-                c.print(f'[magenta]{xml_id}[/] - [red]Erro: {e}[/]')
-    
+                    # Verificar se o ID já foi baixado
+                    if xml_id not in downloaded_ids:
+                        # Criar diretórios se não existirem
+                        os.makedirs(path_mes, exist_ok=True)
+
+                        # Mover o arquivo para o destino
+                        move(os.path.join(pasta, filename), dest_path)
+
+                        c.print(f'[magenta]{xml_id}[/] - [green]Organizado[/]')
+                        count += 1
+                    else:
+                        c.print(f'[magenta]{xml_id}[/] - [yellow]Já baixado[/]')
+                except Exception as e:
+                    c.print(f'[magenta]{filename}[/] - [red]Erro: {e}[/]')
+
     c.print(f"\n[green]Finalizado com sucesso! {count} xml's organizados.[/]")
 

@@ -7,12 +7,16 @@ import logging
 from plyer import notification
 from win10toast import ToastNotifier
 
+toaster = ToastNotifier()
+script_dir = os.path.dirname(os.path.abspath(__file__))
+icon_path = os.path.abspath(os.path.join(script_dir, "..", "icone.ico"))
+
 # Configurar o logger para redirecionar a saída para um arquivo de log
 log_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "logs")
 if not os.path.exists(log_folder):
     os.makedirs(log_folder)
 
-log_file_path = os.path.join(log_folder, "organizador-xml.log")
+log_file_path = os.path.join(log_folder, "subprocesso.log")
 
 # Configurar o logger para redirecionar a saída para o arquivo de log
 logging.basicConfig(
@@ -59,7 +63,7 @@ def login_imap(username, password, imap_server):
         return mail
     except imaplib.IMAP4.error as e:
         logger.error(f"Falha ao conectar ao servidor IMAP: {e}")
-        notification.notify(title='Xml Organize', message="Não foi possível conectar no email para importar os XML's!", app_icon='organizador-xml\icone.ico',)
+        toaster.show_toast('Xml Organize', "Não foi possível conectar no email para importar os XML's!", 'organizador-xml\icone.ico')
         return None
     
 def add_marker_to_email(mail, email_id, marker):
@@ -98,10 +102,20 @@ def scan_and_download_xml_attachments(download_folder, mail_connection, label, r
 
                 filename = part.get_filename()
 
-                # Decodificar o cabeçalho do filename
-                filename, encoding = decode_header(filename)[0]
-                if isinstance(filename, bytes):
-                    filename = filename.decode(encoding or 'utf-8')
+                # Decodificar o cabeçalho do filename de forma mais robusta
+                try:
+                    filename_info = decode_header(filename)
+                    if filename_info[0][1] is not None:
+                        filename, encoding = filename_info[0]
+                        filename = filename.decode(encoding or 'utf-8')
+                    else:
+                        # Lidar com o caso em que filename_info[0][1] é None
+                        filename = filename_info[0][0]
+                        encoding = 'utf-8'  # Ou escolha um valor padrão
+
+                except Exception as e:
+                    # Lidar com qualquer exceção durante a decodificação do cabeçalho
+                    logger.error(f'Decodificar cabeçalho: {e} - {email_id}')
 
                 # Verificar se o anexo é um arquivo XML
                 if filename and filename.lower().endswith(".xml"):
@@ -146,14 +160,14 @@ def scan_and_download_xml_attachments(download_folder, mail_connection, label, r
                     else: 
                         add_marker_to_email(mail_connection, email_id, label)
         
-            if count == 0: 
-                notification.notify(title='Xml Organize', message="Nenhum novo arquivo XML encontrado!", app_icon='organizador-xml\icone.ico',)
-            else:
-                notification.notify(title='Xml Organize', message=f"{count} XML's importados com sucesso!", app_icon='organizador-xml\icone.ico',)
+        if count == 0: 
+            toaster.show_toast('Xml Organize', "Nenhum novo arquivo XML encontrado!", icon_path)
+        else:
+            toaster.show_toast('Xml Organize', f"{count} XML's importados com sucesso!", icon_path)
 
     except Exception as e:
         logger.error(f"Erro ao escanear e baixar arquivos XML: {e}")
-        notification.notify(title='Xml Organize', message="Ocorreu um erro ao importar os arquivos XML!", app_icon='organizador-xml\icone.ico',)
+        toaster.show_toast('Xml Organize', "Ocorreu um erro ao importar os arquivos XML!", icon_path)
 
 
 mail = login_imap(username, password, imap_server)

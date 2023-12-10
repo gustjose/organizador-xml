@@ -5,8 +5,30 @@ from src.process_path import get_downloaded_ids
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.panel import Panel
+from rich.logging import RichHandler
+import logging
 
 c = Console()
+
+# Configurar o logger para redirecionar a saída para um arquivo de log
+log_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "logs")
+if not os.path.exists(log_folder):
+    os.makedirs(log_folder)
+
+log_file_path = os.path.join(log_folder, "main.log")
+
+# Configurar o logger para redirecionar a saída para o arquivo de log
+logging.basicConfig(
+    filename=log_file_path,
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger()
+logger.addHandler(RichHandler())
+
+# Adicione essa linha para testar se o logger está funcionando corretamente
+logger.info("Início do log")
 
 def login_imap(username, password, imap_server):
     try:
@@ -59,10 +81,20 @@ def scan_and_download_xml_attachments(download_folder, mail_connection, label, r
 
                 filename = part.get_filename()
 
-                # Decodificar o cabeçalho do filename
-                filename, encoding = decode_header(filename)[0]
-                if isinstance(filename, bytes):
-                    filename = filename.decode(encoding or 'utf-8')
+            # Decodificar o cabeçalho do filename de forma mais robusta
+                try:
+                    filename_info = decode_header(filename)
+                    if filename_info[0][1] is not None:
+                        filename, encoding = filename_info[0]
+                        filename = filename.decode(encoding or 'utf-8')
+                    else:
+                        # Lidar com o caso em que filename_info[0][1] é None
+                        filename = filename_info[0][0]
+                        encoding = 'utf-8'  # Ou escolha um valor padrão
+
+                except Exception as e:
+                    # Lidar com qualquer exceção durante a decodificação do cabeçalho
+                    logger.error(f'Erro ao decodificar cabeçalho: {e}  - {email_id}')
 
                 # Verificar se o anexo é um arquivo XML
                 if filename and filename.lower().endswith(".xml"):
@@ -110,7 +142,7 @@ def scan_and_download_xml_attachments(download_folder, mail_connection, label, r
         c.print(f"\n[green]Finalizado com sucesso! {count} xml's baixados.[/]")
 
     except Exception as e:
-        c.print(f"[red]Erro ao escanear e baixar arquivos XML:[/] {e}")
+        c.print(f"[red]Erro ao escanear e baixar arquivos XML:[/] {e, e.__cause__, e.__context__}")
 
 def download_xml_attachments(download_folder, mail_connection, rename, label):
     try:
@@ -144,10 +176,20 @@ def download_xml_attachments(download_folder, mail_connection, rename, label):
 
                 filename = part.get_filename()
 
-                # Decodificar o cabeçalho do filename
-                filename, encoding = decode_header(filename)[0]
-                if isinstance(filename, bytes):
-                    filename = filename.decode(encoding or 'utf-8')
+                # Decodificar o cabeçalho do filename de forma mais robusta
+                try:
+                    filename_info = decode_header(filename)
+                    if filename_info[0][1] is not None:
+                        filename, encoding = filename_info[0]
+                        filename = filename.decode(encoding or 'utf-8')
+                    else:
+                        # Lidar com o caso em que filename_info[0][1] é None
+                        filename = filename_info[0][0]
+                        encoding = 'utf-8'  # Ou escolha um valor padrão
+
+                except Exception as e:
+                    # Lidar com qualquer exceção durante a decodificação do cabeçalho
+                    logger.error(f'Erro ao decodificar cabeçalho: {e}  - {email_id}')
 
                 # Verificar se o anexo é um arquivo XML
                 if filename and filename.lower().endswith(".xml"):

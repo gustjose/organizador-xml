@@ -13,7 +13,7 @@ from src.taskmanager import get_scheduled_task_info, delete_scheduled_task, add_
 c = Console()
 p = Prompt()
 
-c.clear()
+os.system('cls' if os.name == 'nt' else 'clear')
 
 # Obter o caminho do diretório do script
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -21,7 +21,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 # Mudar para o diretório do script
 os.chdir(script_dir)
 
-if not os.path.exists('.env'):
+if not os.path.exists('.env') or os.path.getsize('.env') == 0:
     with open('.env', 'w') as env_file:
         c.rule('Configurando', style='#9400d3')
         env_file.write(f"FOLDER_DOWNLOAD={c.input('Qual o endereço da pasta que receberá os XML: ')}\n")
@@ -46,7 +46,7 @@ if not os.path.exists('.env'):
 
         c.print('[green]Configuração salva com sucesso![/]')
         sleep(3)
-        c.clear()
+        os.system('cls' if os.name == 'nt' else 'clear')
 
 load_dotenv()
 
@@ -57,7 +57,7 @@ download_folder = os.getenv('FOLDER_DOWNLOAD')
 rename = os.getenv('RENAME')
 label = os.getenv('LABEL')
 
-c.clear()
+os.system('cls' if os.name == 'nt' else 'clear')
 
 c.rule('Menu', style='#9400d3')
 c.print(Panel('[[green]1[/]] - [white]Configurações[/]', style='#50fa7b'))
@@ -69,7 +69,7 @@ c.print(Panel('[[green]5[/]] - [white]Agendar Importação do e-mail[/]', style=
 option = str(p.ask("Escolha uma das opções:", choices=["1", "2", "3", "4", "5"]))
 if option == "1":
     while True:
-        c.clear()
+        os.system('cls' if os.name == 'nt' else 'clear')
         c.print(Panel(f"Pasta Receptora de XML: {download_folder}\nProvedor:\n server: {imap_server}\n user: {username}\n senha: {password[0:3] + (len(password) - 3) *'*'}\nRenomear arquivos XML: {rename}", style='#50fa7b'))
         c.print(Panel('[[green]1[/]] - [white]Alterar pasta receptora[/]', style='#50fa7b'))
         c.print(Panel('[[green]2[/]] - [white]Alterar Provedor[/]', style='#50fa7b'))
@@ -125,24 +125,27 @@ if option == "1":
         elif suboption == "6": break
 
 if option == "2":
-    c.clear()
+    os.system('cls' if os.name == 'nt' else 'clear')
     mail = login_imap(username, password, imap_server)
     if mail:
         scan_and_download_xml_attachments(download_folder, mail, label, rename)
+        input('Digite enter para continuar ')
 
 if option == "3":
-    c.clear()
+    os.system('cls' if os.name == 'nt' else 'clear')
     mail = login_imap(username, password, imap_server)
     if mail:
         download_xml_attachments(download_folder, mail, rename, label)
+        input('Digite enter para continuar ')
 
 if option == "4":
     pasta_final = input('Em qual pasta estão os arquivos: ')
-    c.clear()
+    os.system('cls' if os.name == 'nt' else 'clear')
     organize_xml(pasta_final, download_folder, rename)
+    input('Digite enter para continuar ')
 
 if option == "5":
-    c.clear()
+    os.system('cls' if os.name == 'nt' else 'clear')
     c.rule('Configurar Agendamento de Importação', style='#9400d3')
 
     if get_scheduled_task_info():
@@ -150,8 +153,10 @@ if option == "5":
         if p.ask("Escolha uma das opções:", choices=["1"]):
             if delete_scheduled_task():
                 c.print('[green]\nTarefa excluída com sucesso![/]')
+                input('Digite enter para continuar ')
             else:
                 c.print('[red]\nErro na execução![/]')
+                input('Digite enter para continuar ')
     else:
         c.print(Panel('[green]1[/]] - [white]Criar agendamento[/]', style='#50fa7b'))
         if p.ask("Escolha uma das opções:", choices=["1"]):
@@ -179,5 +184,7 @@ if option == "5":
             frequencia = freq[int(p.ask("Qual a frequência: ", choices=["1", "2", "3", "4"]))]
             if add_scheduled_task(start_time=data_hora_concatenada, frequency=frequencia):
                 c.print('[green]\nTarefa agendada com sucesso![/]')
+                input('Digite enter para continuar ')
             else:
                 c.print('[red]\nErro na execução![/]')
+                input('Digite enter para continuar ')

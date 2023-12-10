@@ -23,7 +23,7 @@ class ProcessXml:
         root = ET.fromstring(self.xml_content)
         emissor = root.find('.//{http://www.portalfiscal.inf.br/nfe}emit/{http://www.portalfiscal.inf.br/nfe}xNome')
         if emissor is not None:
-            return emissor.text.strip()
+            return emissor.text.strip().replace('/', '').replace("\\", "")
     
     def extract_emissor_cnpj(self):
         root = ET.fromstring(self.xml_content)
@@ -38,7 +38,7 @@ class ProcessXml:
         if dhEmi_tag is not None:
             dhEmi_text = dhEmi_tag.text.strip()
             return dhEmi_text.split('-')[0]
-        if None is not None:
+        if dEmi_tag is not None:
             dEmi_text = dEmi_tag.text.strip()
             return dEmi_text.split('-')[0]
     
@@ -66,9 +66,9 @@ class ProcessXml:
             dhEmi_text = dhEmi_tag.text.strip()
             mes = int(dhEmi_text.split('-')[1])
             return month_name[mes]
-        if None is not None:
+        if dEmi_tag is not None:
             dEmi_text = dEmi_tag.text.strip()
-            mes = int(dhEmi_text.split('-')[1])
+            mes = int(dEmi_text.split('-')[1])
             return month_name[mes]
     
     def extract_item_id(self):
