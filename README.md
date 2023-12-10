@@ -22,7 +22,7 @@ Este script em Python foi desenvolvido para baixar e organizar **Notas Ficais El
 3. Execute o script:
 
     ```bash
-    python import_email.py
+    python main.py
     ```
 
 ## Instalação
