@@ -27,9 +27,6 @@ logging.basicConfig(
 logger = logging.getLogger()
 logger.addHandler(RichHandler())
 
-# Adicione essa linha para testar se o logger está funcionando corretamente
-logger.info("Início do log")
-
 def login_imap(username, password, imap_server):
     try:
         # Conectar ao servidor IMAP

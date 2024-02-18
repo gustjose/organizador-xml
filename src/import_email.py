@@ -4,7 +4,6 @@ from process_xml import ProcessXml
 from dotenv import load_dotenv
 from rich.logging import RichHandler
 import logging
-from plyer import notification
 from win10toast import ToastNotifier
 
 toaster = ToastNotifier()
@@ -27,9 +26,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger()
 logger.addHandler(RichHandler())
-
-# Adicione essa linha para testar se o logger está funcionando corretamente
-logger.info("Início do log")
 
 load_dotenv()
 
