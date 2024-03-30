@@ -7,6 +7,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.logging import RichHandler
 import logging
+import socket
+from ssl import SSLEOFError
 
 c = Console()
 
@@ -67,6 +69,9 @@ def scan_and_download_xml_attachments(download_folder, mail_connection, label, r
             os.makedirs(download_folder)
 
         for email_id in email_ids:
+            if mail_connection.noop()[0] != 'OK':
+                raise Exception("Conexão com o servidor de e-mails perdida")
+            
             _, msg_data = mail_connection.fetch(email_id, '(RFC822)')
             msg = email.message_from_bytes(msg_data[0][1])
 
@@ -138,6 +143,10 @@ def scan_and_download_xml_attachments(download_folder, mail_connection, label, r
         
         c.print(f"\n[green]Finalizado com sucesso! {count} xml's baixados.[/]")
 
+    
+    except (socket.error, SSLEOFError) as e:
+        c.print(f"[red]Erro de conexão ao escanear e baixar arquivos XML:[/] {e}")
+
     except Exception as e:
         c.print(f"[red]Erro ao escanear e baixar arquivos XML:[/] {e, e.__cause__, e.__context__}")
 
@@ -162,6 +171,9 @@ def download_xml_attachments(download_folder, mail_connection, rename, label):
             os.makedirs(download_folder)
 
         for email_id in email_ids:
+            if mail_connection.noop()[0] != 'OK':
+                raise Exception("Conexão com o servidor de e-mails perdida")
+            
             _, msg_data = mail_connection.fetch(email_id, '(RFC822)')
             msg = email.message_from_bytes(msg_data[0][1])
 
@@ -215,6 +227,9 @@ def download_xml_attachments(download_folder, mail_connection, rename, label):
                         add_marker_to_email(mail_connection, email_id, label)
                         
         c.print(f"\n[green]Finalizado com sucesso! {count} xml's baixados.[/]")
+
+    except (socket.error, SSLEOFError) as e:
+        c.print("[red]Erro de conexão:[/] Conexão com o servidor IMAP perdida.")
 
     except Exception as e:
         print(f"Erro ao escanear e baixar arquivos XML: {e}")
