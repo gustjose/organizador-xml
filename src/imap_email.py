@@ -83,20 +83,21 @@ def scan_and_download_xml_attachments(download_folder, mail_connection, label, r
 
                 filename = part.get_filename()
 
-            # Decodificar o cabeçalho do filename de forma mais robusta
-                try:
-                    filename_info = decode_header(filename)
-                    if filename_info[0][1] is not None:
-                        filename, encoding = filename_info[0]
-                        filename = filename.decode(encoding or 'utf-8')
-                    else:
-                        # Lidar com o caso em que filename_info[0][1] é None
-                        filename = filename_info[0][0]
-                        encoding = 'utf-8'  # Ou escolha um valor padrão
+                # Decodificar o cabeçalho do filename de forma mais robusta
+                if filename:
+                    try:
+                        filename_info = decode_header(filename)
+                        if filename_info[0][1] is not None:
+                            filename, encoding = filename_info[0]
+                            filename = filename.decode(encoding or 'utf-8')
+                        else:
+                            # Lidar com o caso em que filename_info[0][1] é None
+                            filename = filename_info[0][0]
+                            encoding = 'utf-8'  # Ou escolha um valor padrão
 
-                except Exception as e:
-                    # Lidar com qualquer exceção durante a decodificação do cabeçalho
-                    logger.error(f'Erro ao decodificar cabeçalho: {e}  - {email_id}')
+                    except Exception as e:
+                        logger.error(f'Erro ao decodificar cabeçalho: {e}  - {email_id}')
+                        continue  # Pular para o próximo anexo
 
                 # Verificar se o anexo é um arquivo XML
                 if filename and filename.lower().endswith(".xml"):
@@ -107,9 +108,9 @@ def scan_and_download_xml_attachments(download_folder, mail_connection, label, r
                     item_ano = process_xml.extract_year_from_xml()
                     item_mes = process_xml.extract_mes()
 
-                    emissor_path = download_folder + f'\\{item_emissor}'
-                    ano_path = emissor_path + f'\\{item_ano}'
-                    mes_path = ano_path + f'\\{item_mes}'
+                    emissor_path = os.path.join(download_folder, item_emissor)
+                    ano_path = os.path.join(emissor_path, item_ano)
+                    mes_path = os.path.join(ano_path, item_mes)
 
                     # Verificar se o ID já foi baixado
                     if item_id not in downloaded_ids:
