@@ -2,32 +2,15 @@ import imaplib, email, os
 from email.header import decode_header
 from src.process_xml import ProcessXml
 from src.process_path import get_downloaded_ids
-from dotenv import load_dotenv
 from rich.console import Console
 from rich.panel import Panel
-from rich.logging import RichHandler
 import logging
 import socket
 from ssl import SSLEOFError
 
 c = Console()
 
-# Configurar o logger para redirecionar a saída para um arquivo de log
-log_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "logs")
-if not os.path.exists(log_folder):
-    os.makedirs(log_folder)
-
-log_file_path = os.path.join(log_folder, "main.log")
-
-# Configurar o logger para redirecionar a saída para o arquivo de log
-logging.basicConfig(
-    filename=log_file_path,
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
 logger = logging.getLogger()
-logger.addHandler(RichHandler())
 
 def login_imap(username, password, imap_server):
     try:
@@ -38,7 +21,8 @@ def login_imap(username, password, imap_server):
         c.print(Panel('[green]Conexão IMAP estabelecida com sucesso![/]', style='#9400d3'))
         return mail
     except imaplib.IMAP4.error as e:
-        print(f"Falha ao conectar ao servidor IMAP: {e}")
+        c.print('Falha ao conectar ao servidor IMAP: {e}')
+        logger.error(f'Servidor IMAP: {e}')
         return None
     
 def add_marker_to_email(mail, email_id, marker):
@@ -46,10 +30,11 @@ def add_marker_to_email(mail, email_id, marker):
         mail.select('inbox')
         mail.store(email_id, '+X-GM-LABELS', f'({marker})')
     except Exception as e:
-        print(f"Erro ao adicionar marcador ao e-mail: {e}")
+        c.print('Não foi possível adicionar o marcador aos e-mails.')
+        logger.error(f"Marcador email: {e}")
 
 def scan_and_download_xml_attachments(download_folder, mail_connection, label, rename):
-    try:
+    try: 
         mail_connection.select('inbox')
 
         # Obter IDs dos e-mails com anexos
@@ -83,21 +68,21 @@ def scan_and_download_xml_attachments(download_folder, mail_connection, label, r
 
                 filename = part.get_filename()
 
-                # Decodificar o cabeçalho do filename de forma mais robusta
+                # Decodificar o cabeçalho
                 if filename:
                     try:
                         filename_info = decode_header(filename)
-                        if filename_info[0][1] is not None:
-                            filename, encoding = filename_info[0]
-                            filename = filename.decode(encoding or 'utf-8')
-                        else:
-                            # Lidar com o caso em que filename_info[0][1] é None
+                        if isinstance(filename_info[0][0], bytes):
+                            filename = filename_info[0][0].decode(filename_info[0][1] or 'utf-8')
+                        elif isinstance(filename_info[0][0], str):
                             filename = filename_info[0][0]
-                            encoding = 'utf-8'  # Ou escolha um valor padrão
+                        else:
+                            logger.warning(f"Filename Type: {type(filename_info[0][0])} / Valor: {filename_info[0][0]} / ID: {email_id}")
+                            continue
 
                     except Exception as e:
-                        logger.error(f'Erro ao decodificar cabeçalho: {e}  - {email_id}')
-                        continue  # Pular para o próximo anexo
+                        logger.warning(f'Filename Decodificacao: {e} / ID: {email_id}')
+                        continue
 
                 # Verificar se o anexo é um arquivo XML
                 if filename and filename.lower().endswith(".xml"):
@@ -136,9 +121,11 @@ def scan_and_download_xml_attachments(download_folder, mail_connection, label, r
                             with open(dest_path, 'w', encoding='utf-8') as xml_file:
                                 xml_file.write(xml_content)
                             c.print(f'[magenta]{item_id}[/] - [green]Baixado[/]')
+                            logger.info(f'XML Baixado: {item_id}')
                             count += 1
                         except Exception as e:
-                            c.print(f'[magenta]{item_id}[/] - [red]Erro: {e}[/]')
+                            c.print(f'[magenta]{item_id}[/] - [red]Não foi possível baixar o XML[/]')
+                            logger.error(f'{item_id}: {e}')
                     else: 
                         add_marker_to_email(mail_connection, email_id, label)
         
@@ -146,10 +133,12 @@ def scan_and_download_xml_attachments(download_folder, mail_connection, label, r
 
     
     except (socket.error, SSLEOFError) as e:
-        c.print(f"[red]Erro de conexão ao escanear e baixar arquivos XML:[/] {e}")
+        c.print(f"[red]Não foi possível concluir o processo: {e}.[/]")
+        logger.error(f'Socket: {e}')
 
     except Exception as e:
-        c.print(f"[red]Erro ao escanear e baixar arquivos XML:[/] {e, e.__cause__, e.__context__}")
+        c.print(f"[red]Não foi possível baixar o XML.[/]")
+        logger.error(f'Download: {e, e.__cause__, e.__context__}')
 
 def download_xml_attachments(download_folder, mail_connection, rename, label):
     try:
@@ -189,17 +178,17 @@ def download_xml_attachments(download_folder, mail_connection, rename, label):
                 # Decodificar o cabeçalho do filename de forma mais robusta
                 try:
                     filename_info = decode_header(filename)
-                    if filename_info[0][1] is not None:
-                        filename, encoding = filename_info[0]
-                        filename = filename.decode(encoding or 'utf-8')
-                    else:
-                        # Lidar com o caso em que filename_info[0][1] é None
+                    if isinstance(filename_info[0][0], bytes):
+                        filename = filename_info[0][0].decode(filename_info[0][1] or 'utf-8')
+                    elif isinstance(filename_info[0][0], str):
                         filename = filename_info[0][0]
-                        encoding = 'utf-8'  # Ou escolha um valor padrão
+                    else:
+                        logger.warning(f"Filename Type: {type(filename_info[0][0])} / Valor: {filename_info[0][0]} / ID: {email_id}")
+                        continue
 
                 except Exception as e:
-                    # Lidar com qualquer exceção durante a decodificação do cabeçalho
-                    logger.error(f'Erro ao decodificar cabeçalho: {e}  - {email_id}')
+                    logger.warning(f'Filename Decodificacao: {e} / ID: {email_id}')
+                    continue
 
                 # Verificar se o anexo é um arquivo XML
                 if filename and filename.lower().endswith(".xml"):
@@ -220,9 +209,11 @@ def download_xml_attachments(download_folder, mail_connection, rename, label):
                             with open(dest_path, 'w', encoding='utf-8') as xml_file:
                                 xml_file.write(xml_content)
                             c.print(f'[magenta]{item_id}[/] - [green]Baixado[/]')
+                            logger.info(f'XML Baixado: {item_id}')
                             count += 1
                         except Exception as e:
-                            c.print(f'[magenta]{item_id}[/] - [red]Erro: {e}[/]')
+                            c.print(f'[magenta]{item_id}[/] - [red]Não foi possível baixar o XML[/]')
+                            logger.error(f'{item_id}: {e}')
                     
                     else: 
                         add_marker_to_email(mail_connection, email_id, label)
@@ -230,8 +221,10 @@ def download_xml_attachments(download_folder, mail_connection, rename, label):
         c.print(f"\n[green]Finalizado com sucesso! {count} xml's baixados.[/]")
 
     except (socket.error, SSLEOFError) as e:
-        c.print("[red]Erro de conexão:[/] Conexão com o servidor IMAP perdida.")
+        c.print(f"[red]Não foi possível concluir o processo: {e}.[/]")
+        logger.error(f'Socket: {e}')
 
     except Exception as e:
-        print(f"Erro ao escanear e baixar arquivos XML: {e}")
+        c.print(f"[red]Não foi possível baixar o XML.[/]")
+        logger.error(f'Download: {e, e.__cause__, e.__context__}')
 

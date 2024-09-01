@@ -1,4 +1,7 @@
 from xml.etree import ElementTree as ET
+import logging
+
+logger = logging.getLogger()
 
 class ProcessXml:
     def __init__(self, path=None, content=None) -> None:
@@ -16,7 +19,7 @@ class ProcessXml:
             xml_content = ET.tostring(root, encoding='utf-8').decode('utf-8')
             return xml_content
         except ET.ParseError as e:
-            print(f"Error parsing XML file {self.file_path}: {e}")
+            logger.error(f'Processar XML - Arquivo: {self.file_path} / {e} ')
             return None
     
     def extract_emissor_name(self):

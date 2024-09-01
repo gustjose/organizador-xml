@@ -4,7 +4,9 @@ from rich.progress import Progress
 from src.process_xml import ProcessXml
 from dotenv import load_dotenv
 from rich.console import Console
-from rich.panel import Panel
+import logging
+
+logger = logging.getLogger()
 
 c = Console()
 
@@ -71,6 +73,7 @@ def organize_xml(folder, folder_download, rename):
                         c.print(f'[magenta]{xml_id}[/] - [yellow]Já baixado[/]')
                 except Exception as e:
                     c.print(f'[magenta]{filename}[/] - [red]Erro: {e}[/]')
+                    logger.error(f'{xml_id}: {e}')
 
     c.print(f"\n[green]Finalizado com sucesso! {count} xml's organizados.[/]")
 

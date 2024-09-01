@@ -2,7 +2,6 @@ import imaplib, email, os
 from email.header import decode_header
 from process_xml import ProcessXml
 from dotenv import load_dotenv
-from rich.logging import RichHandler
 import logging
 from win10toast import ToastNotifier
 
@@ -10,22 +9,27 @@ toaster = ToastNotifier()
 script_dir = os.path.dirname(os.path.abspath(__file__))
 icon_path = os.path.abspath(os.path.join(script_dir, "..", "icone.ico"))
 
-# Configurar o logger para redirecionar a saída para um arquivo de log
-log_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "logs")
-if not os.path.exists(log_folder):
-    os.makedirs(log_folder)
+def setup_logger():
+    # Configurar o caminho para o arquivo de log
+    log_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "logs")
+    if not os.path.exists(log_folder):
+        os.makedirs(log_folder)
 
-log_file_path = os.path.join(log_folder, "subprocesso.log")
+    log_file_path = os.path.join(log_folder, "logs.log")
 
-# Configurar o logger para redirecionar a saída para o arquivo de log
-logging.basicConfig(
-    filename=log_file_path,
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+    # Criar um handler para o arquivo de log
+    file_handler = logging.FileHandler(log_file_path)
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
+
+    # Configura o logger com o handler de arquivo
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    logger.addHandler(file_handler)
+
+    return logger
+
 logger = logging.getLogger()
-logger.addHandler(RichHandler())
 
 load_dotenv()
 
@@ -58,8 +62,8 @@ def login_imap(username, password, imap_server):
         logger.info('Conexao IMAP estabelecida com sucesso.')
         return mail
     except imaplib.IMAP4.error as e:
-        logger.error(f"Falha ao conectar ao servidor IMAP: {e}")
-        toaster.show_toast('Xml Organize', "Não foi possível conectar no email para importar os XML's!", 'organizador-xml\icone.ico')
+        logger.error(f"Servidor IMAP: {e}")
+        toaster.show_toast('Xml Organize', "Não foi possível conectar ao email para importar os XML's!", 'organizador-xml\icone.ico')
         return None
     
 def add_marker_to_email(mail, email_id, marker):
@@ -67,7 +71,7 @@ def add_marker_to_email(mail, email_id, marker):
         mail.select('inbox')
         mail.store(email_id, '+X-GM-LABELS', f'({marker})')
     except Exception as e:
-        logger.error(f"Erro ao adicionar marcador ao e-mail: {e}")
+        logger.error(f"Marcador email: {e}")
 
 def scan_and_download_xml_attachments(download_folder, mail_connection, label, rename):
     try:
@@ -98,20 +102,21 @@ def scan_and_download_xml_attachments(download_folder, mail_connection, label, r
 
                 filename = part.get_filename()
 
-                # Decodificar o cabeçalho do filename de forma mais robusta
-                try:
-                    filename_info = decode_header(filename)
-                    if filename_info[0][1] is not None:
-                        filename, encoding = filename_info[0]
-                        filename = filename.decode(encoding or 'utf-8')
-                    else:
-                        # Lidar com o caso em que filename_info[0][1] é None
-                        filename = filename_info[0][0]
-                        encoding = 'utf-8'  # Ou escolha um valor padrão
+                # Decodificar o cabeçalho
+                if filename:
+                    try:
+                        filename_info = decode_header(filename)
+                        if isinstance(filename_info[0][0], bytes):
+                            filename = filename_info[0][0].decode(filename_info[0][1] or 'utf-8')
+                        elif isinstance(filename_info[0][0], str):
+                            filename = filename_info[0][0]
+                        else:
+                            logger.warning(f"Filename Type: {type(filename_info[0][0])} / Valor: {filename_info[0][0]} / ID: {email_id}")
+                            continue
 
-                except Exception as e:
-                    # Lidar com qualquer exceção durante a decodificação do cabeçalho
-                    logger.error(f'Decodificar cabeçalho: {e} - {email_id}')
+                    except Exception as e:
+                        logger.warning(f'Filename Decodificacao: {e} / ID: {email_id}')
+                        continue
 
                 # Verificar se o anexo é um arquivo XML
                 if filename and filename.lower().endswith(".xml"):
@@ -149,10 +154,10 @@ def scan_and_download_xml_attachments(download_folder, mail_connection, label, r
                         try:
                             with open(dest_path, 'w', encoding='utf-8') as xml_file:
                                 xml_file.write(xml_content)
-                            logger.info(f"Arquivo '{filename}' (ID: {item_id}) baixado.")
+                            logger.info(f"[magenta]{item_id}[/] - [green]Baixado[/]")
                             count += 1
                         except Exception as e:
-                            logger.error(f"Erro '{filename}' (ID: {item_id}): {e}")
+                            logger.error(f"{item_id}: {e}")
                     else: 
                         add_marker_to_email(mail_connection, email_id, label)
         
@@ -162,7 +167,7 @@ def scan_and_download_xml_attachments(download_folder, mail_connection, label, r
             toaster.show_toast('Xml Organize', f"{count} XML's importados com sucesso!", icon_path)
 
     except Exception as e:
-        logger.error(f"Erro ao escanear e baixar arquivos XML: {e}")
+        logger.error(f"Download: {e}")
         toaster.show_toast('Xml Organize', "Ocorreu um erro ao importar os arquivos XML!", icon_path)
 
 
