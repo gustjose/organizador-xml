@@ -4,7 +4,21 @@ import logging
 logger = logging.getLogger()
 
 class ProcessXml:
+    """
+    Classe para processar e extrair informações de arquivos XML de documentos fiscais eletrônicos.
+    """
     def __init__(self, path=None, content=None) -> None:
+        """
+        Inicializa o objeto ProcessXml.
+
+        Parâmetros:
+        - path (str): Caminho para o arquivo XML.
+        - content (str): Conteúdo XML em formato de string.
+
+        Comportamento:
+        - Se `path` é fornecido, lê o conteúdo XML do arquivo usando `read_xml_file`.
+        - Se `content` é fornecido, utiliza-o diretamente como conteúdo XML.
+        """
         self.file_path = path
         if path is not None:
             self.xml_content = self.read_xml_file()
@@ -13,6 +27,15 @@ class ProcessXml:
         pass
 
     def read_xml_file(self):
+        """
+        Lê o conteúdo do arquivo XML e retorna como uma string.
+
+        Retorna:
+        - str: Conteúdo do XML como string, ou `None` se ocorrer um erro de parsing.
+
+        Exceções:
+        - Se ocorrer um erro de parsing, um erro será registrado no log e `None` será retornado.
+        """
         try:
             tree = ET.parse(self.file_path)
             root = tree.getroot()
@@ -23,18 +46,36 @@ class ProcessXml:
             return None
     
     def extract_emissor_name(self):
+        """
+        Extrai o nome do emissor do XML.
+
+        Retorna:
+        - str: Nome do emissor sem caracteres "/" ou "\\".
+        """
         root = ET.fromstring(self.xml_content)
         emissor = root.find('.//{http://www.portalfiscal.inf.br/nfe}emit/{http://www.portalfiscal.inf.br/nfe}xNome')
         if emissor is not None:
             return emissor.text.strip().replace('/', '').replace("\\", "")
     
     def extract_emissor_cnpj(self):
+        """
+        Extrai o CNPJ do emissor do XML.
+
+        Retorna:
+        - str: CNPJ do emissor.
+        """
         root = ET.fromstring(self.xml_content)
         emissor = root.find('.//{http://www.portalfiscal.inf.br/nfe}emit/{http://www.portalfiscal.inf.br/nfe}CNPJ')
         if emissor is not None:
             return emissor.text.strip()
     
     def extract_year_from_xml(self):
+        """
+        Extrai o ano de emissão do XML.
+
+        Retorna:
+        - str: Ano de emissão.
+        """
         root = ET.fromstring(self.xml_content)
         dhEmi_tag = root.find('.//{http://www.portalfiscal.inf.br/nfe}dhEmi')
         dEmi_tag = root.find('.//{http://www.portalfiscal.inf.br/nfe}dEmi')
@@ -46,6 +87,12 @@ class ProcessXml:
             return dEmi_text.split('-')[0]
     
     def extract_mes(self):
+        """
+        Extrai o mês de emissão do XML e o converte para o nome do mês em português.
+
+        Retorna:
+        - str: Nome do mês de emissão em português.
+        """
         root = ET.fromstring(self.xml_content)
         dhEmi_tag = root.find('.//{http://www.portalfiscal.inf.br/nfe}dhEmi')
         dEmi_tag = root.find('.//{http://www.portalfiscal.inf.br/nfe}dEmi')
@@ -75,6 +122,12 @@ class ProcessXml:
             return month_name[mes]
     
     def extract_item_id(self):
+        """
+        Extrai o ID único do documento XML.
+
+        Retorna:
+        - str: ID do documento, ou `None` se não for encontrado.
+        """
         root = ET.fromstring(self.xml_content)
         item_element = root.find('.//{http://www.portalfiscal.inf.br/nfe}infNFe')
         if item_element is not None:

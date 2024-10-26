@@ -1,4 +1,4 @@
-<img src="https://imgur.com/oUCxSrZ.png" width="200" />
+<img src="https://imgur.com/QbX6ClZ.png"  />
 
 # Xml Organize
 
@@ -37,7 +37,7 @@ Este script em Python foi desenvolvido para baixar e organizar **Notas Ficais El
 - **Importar XML do E-mail:** Baixe e organize automaticamente os arquivos XML do seu e-mail.
 - **Baixar XML do E-mail:** Baixe apenas os arquivos XML sem organizá-los.
 - **Organizar XML em Pasta:** Organize manualmente os arquivos XML em uma pasta específica.
-- **Agendar Importação do E-mail:** Agende a importação automática dos XMLs.
+- **Gerar DANFE:** Permite a geração de DANFE's em PDF.
 
 ## Licença
 

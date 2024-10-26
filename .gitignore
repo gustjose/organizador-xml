@@ -1,7 +1,12 @@
+comando compilar service.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Database
+data.json
 
 # Arquivos de testes
 teste.py

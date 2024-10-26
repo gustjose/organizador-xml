@@ -2,7 +2,6 @@ import os
 from shutil import move
 from rich.progress import Progress
 from src.process_xml import ProcessXml
-from dotenv import load_dotenv
 from rich.console import Console
 import logging
 
@@ -11,6 +10,26 @@ logger = logging.getLogger()
 c = Console()
 
 def get_downloaded_ids(download_folder):
+    """
+    Obtém os IDs de arquivos XML já baixados para evitar duplicação.
+
+    A função percorre o diretório especificado, identifica arquivos com extensão `.xml` e extrai seus IDs. 
+    Esses IDs são adicionados a um conjunto, que é então retornado para uso posterior.
+
+    Parâmetros:
+    - download_folder (str): Diretório raiz onde os arquivos XML baixados estão armazenados.
+
+    Retorna:
+    - set: Conjunto de IDs extraídos dos arquivos XML encontrados no diretório.
+
+    Comportamento:
+    - A função exibe uma barra de progresso para indicar o progresso da verificação.
+    - Utiliza `ProcessXml` para extrair o ID de cada arquivo XML, que é então adicionado ao conjunto `downloaded_ids`.
+
+    Exemplo de Uso:
+    downloaded_ids = get_downloaded_ids("/caminho/para/download")
+    """
+
     # Obter IDs dos arquivos já baixados na pasta de download
     downloaded_ids = set()
 
@@ -35,6 +54,26 @@ def get_downloaded_ids(download_folder):
     return downloaded_ids
 
 def organize_xml(folder, folder_download, rename):
+    """
+    Organiza arquivos XML em subdiretórios com base em informações extraídas de seu conteúdo.
+
+    Esta função busca arquivos XML em uma pasta específica, extrai dados de cada arquivo (como emissor, ano e mês), 
+    e os organiza em uma estrutura de subdiretórios. Se o ID do arquivo já existir na pasta de download, ele não é movido novamente.
+
+    Parâmetros:
+    - folder (str): Diretório de origem contendo arquivos XML para organizar.
+    - folder_download (str): Diretório de destino onde os arquivos XML organizados serão salvos.
+    - rename (bool): Indicador para renomear o arquivo XML baseado no ID extraído.
+
+    Comportamento:
+    - Utiliza a função `get_downloaded_ids` para obter os IDs de arquivos já baixados.
+    - Cria subdiretórios conforme necessário, com base nas informações de emissor, ano e mês.
+    - Exibe no console mensagens de status para cada arquivo (organizado, já baixado ou erro).
+
+    Exemplo de Uso:
+    organize_xml("/caminho/origem", "/caminho/download", rename=True)
+    """
+    
     downloaded_ids = get_downloaded_ids(folder_download)
 
     c.print('\n')

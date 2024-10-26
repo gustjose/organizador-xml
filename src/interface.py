@@ -2,23 +2,73 @@ import os
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
-from dotenv import load_dotenv, set_key
 from time import sleep
 from datetime import datetime
-from src import *  # Supondo que suas funções auxiliares estejam aqui
+from src.imap_email import login_imap, scan_and_download_xml_attachments, download_xml_attachments
+from src.process_path import organize_xml
+from src.danfe import danfe_pdf, diretorio_danfe_pdf
 import logging
+import json
 
 c = Console()
 p = Prompt()
 
+# Logger
 logger = logging.getLogger()
 
-username = os.getenv('USER')
-password = os.getenv('SENHA')
-imap_server = os.getenv('IMAP_SERVER')
-download_folder = os.getenv('FOLDER_DOWNLOAD')
-rename = os.getenv('RENAME')
-label = os.getenv('LABEL')
+# ACESSANDO DADOS DO USUARIO
+db = 'data.json'
+if not os.path.exists(db) or os.path.getsize(db) == 0:
+    try:
+        c.rule('Configurando', style='#9400d3')
+        download_folder = c.input('Qual o endereço da pasta que receberá os XML: ')
+
+        c.print("\nQual o seu provedor de e-mail?", justify='center')
+        c.print('[[green]1[/]] - [white]Gmail[/]')
+        c.print('[[green]2[/]] - [white]Outlook[/]')
+        provedor = p.ask("Escolha uma das opções:", choices=["1", "2"], default="1")
+
+        if provedor == "1": imap_server = "imap.gmail.com"
+        if provedor == "2": imap_server = "outlook.office365.com"
+
+        username = c.input('\nEmail: ')
+        password = c.input('Senha: ')
+
+        rename = p.ask("\nDeseja que os arquivos sejam renomeados automaticamente após processados: ", choices=["S", "N"], default="S")
+
+        if rename == "S": rename = True
+        else: rename = False
+
+        label = c.input('Nome do marcador que será adicionado ao email após baixar o xml: ')
+
+        initial_data = {
+            "USER": username,
+            "SENHA": password,
+            "IMAP_SERVER": imap_server,
+            "FOLDER_DOWNLOAD": download_folder,
+            "RENAME": rename, 
+            "LABEL": label
+        }
+        with open(db, 'w') as file:
+            json.dump(initial_data, file, indent=4)
+        
+        c.print('[green]Configuração salva com sucesso![/]')
+        sleep(3)
+        
+    except Exception as e:
+        c.print(f'[red]Erro: {e}[/]')
+        logger.error(f'Database: {e}')
+
+else:
+    with open(db, 'r') as file:
+        data = json.load(file)
+    
+    username = data['USER']
+    password = data['SENHA']
+    imap_server = data['IMAP_SERVER']
+    download_folder = data['FOLDER_DOWNLOAD']
+    rename = data['RENAME']
+    label = data['LABEL']
 
 def exibir_menu():
     
@@ -28,7 +78,7 @@ def exibir_menu():
     c.print(Panel('[[green]2[/]] - [white]Importar XML do e-mail[/]', style='#50fa7b'))
     c.print(Panel('[[green]3[/]] - [white]Baixar XML do e-mail[/]', style='#50fa7b'))
     c.print(Panel('[[green]4[/]] - [white]Organizar XML em pasta[/]', style='#50fa7b'))
-    c.print(Panel('[[green]5[/]] - [white]Agendar Importação do e-mail[/]', style='#50fa7b'))
+    c.print(Panel('[[green]5[/]] - [white]Gerar DANFE do XML[/]', style='#50fa7b'))
 
     option = str(p.ask("Escolha uma das opções:", choices=["1", "2", "3", "4", "5"]))
 
@@ -41,10 +91,11 @@ def exibir_menu():
     elif option == "4":
         organizar_xml_interface(download_folder, rename)
     elif option == "5":
-        agendar_importacao()
+        gerar_danfe()
+        
 
 def configurar_sistema():
-    global rename
+    global username, password, imap_server, download_folder, rename, label
     while True:
         os.system('cls' if os.name == 'nt' else 'clear')
         c.print(Panel(f"Pasta Receptora de XML: {download_folder}\nProvedor:\n server: {imap_server}\n user: {username}\n senha: {password[0:3] + (len(password) - 3) *'*'}\nRenomear arquivos XML: {rename}", style='#50fa7b'))
@@ -53,58 +104,62 @@ def configurar_sistema():
         c.print(Panel('[[green]3[/]] - [white]Alterar Email[/]', style='#50fa7b'))
         c.print(Panel('[[green]4[/]] - [white]Alterar Senha[/]', style='#50fa7b'))
         c.print(Panel('[[green]5[/]] - [white]Ativar/Desativar renomear XML[/]', style='#50fa7b'))
-        c.print(Panel('[[green]6[/]] - [white]Finalizar[/]', style='#50fa7b'))
+        c.print(Panel('[[green]6[/]] - [white]Salvar alterações[/]', style='#50fa7b'))
 
         suboption = str(p.ask("Escolha uma das opções:", choices=["1", "2", "3", "4", "5", "6"]))
 
         if suboption == "1":
-            try: 
-                set_key('.env', 'FOLDER_DOWNLOAD', c.input('Qual o endereço da pasta que receberá os XML: '))
-                c.print('[green]Configuração salva com sucesso![/]')
-                sleep(3)
+            try:
+                download_folder = c.input('Qual o endereço da pasta que receberá os XML: ')
+                data['FOLDER_DOWNLOAD'] = download_folder
             except Exception as e:
                 c.print(f'[red]Erro: {e}[/]')
                 logger.error(f'Interface: {e}')
                 sleep(3)
         elif suboption == "2":
-            try: 
-                set_key('.env', 'IMAP_SERVER', c.input('Alterar provedor: '))
-                c.print('[green]Configuração salva com sucesso![/]')
-                sleep(3)
+            try:
+                imap_server = c.input('Alterar provedor: ')
+                data['IMAP_SERVER'] = imap_server
             except Exception as e:
                 c.print(f'[red]Erro: {e}[/]')
                 logger.error(f'Interface: {e}')
                 sleep(3)
         elif suboption == "3":
-            try: 
-                set_key('.env', 'USER', c.input('Alterar email: '))
-                c.print('[green]Configuração salva com sucesso![/]')
-                sleep(3)
+            try:
+                username = c.input('Alterar email: ')
+                data['USER'] = username
             except Exception as e:
                 c.print(f'[red]Erro: {e}[/]')
                 logger.error(f'Interface: {e}')
                 sleep(3)
         elif suboption == "4":
-            try: 
-                set_key('.env', 'SENHA', c.input('Alterar senha: '))
-                c.print('[green]Configuração salva com sucesso![/]')
-                sleep(3)
+            try:
+                password = c.input('Alterar senha: ')
+                data['SENHA'] = password
             except Exception as e:
                 c.print(f'[red]Erro: {e}[/]')
                 logger.error(f'Interface: {e}')
                 sleep(3)
         elif suboption == "5":
-            try: 
-                rename = p.ask("\nDeseja que os arquivos sejam renomeados automaticamente após processados: ", choices=["S", "N"], default="S")
-                if rename == "S": set_key('.env', 'RENAME', 'True')
-                if rename == "N": set_key('.env', 'RENAME', 'False')
-                c.print('[green]Configuração salva com sucesso![/]')
-                sleep(3)
+            try:
+                rename = p.ask("\nDeseja que os arquivos sejam renomeados automaticamente após processados: ", choices=["S", "N"], default="S") == "S"
+                data['RENAME'] = rename
             except Exception as e:
                 c.print(f'[red]Erro: {e}[/]')
                 logger.error(f'Interface: {e}')
                 sleep(3)
-        elif suboption == "6": break
+        elif suboption == "6":
+            try:
+                with open(db, 'w') as file:
+                    json.dump(data, file, indent=4)
+                
+                c.print('[green]Configuração salva com sucesso![/]')
+                input('Digite enter para continuar ')
+                exibir_menu()
+            except Exception as e:
+                c.print(f'[red]Erro ao salvar as configurações: {e}[/]')
+                logger.error(f'Salvamento: {e}')
+            break
 
 def importar_xml(username, password, imap_server, download_folder, rename, label):
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -126,47 +181,29 @@ def organizar_xml_interface(download_folder, rename):
     organize_xml(pasta_final, download_folder, rename)
     input('Digite enter para continuar ')
 
-def agendar_importacao():
+def gerar_danfe():
     os.system('cls' if os.name == 'nt' else 'clear')
-    c.rule('Configurar Agendamento de Importação', style='#9400d3')
+    c.rule('Gerar DANFE', style='#9400d3')
+    c.print(Panel('[[green]1[/]] - [white]XML único[/]\n[[green]2[/]] - [white]Todos os arquivos de uma pasta[/]', style='#50fa7b'))
+    option = p.ask("Escolha uma das opções:", choices=["1", "2"])
 
-    if get_scheduled_task_info():
-        c.print(Panel('[[green]1[/]] - [white]Excluir agendamento[/]', style='#50fa7b'))
-        if p.ask("Escolha uma das opções:", choices=["1"]):
-            if delete_scheduled_task():
-                c.print('[green]\nTarefa excluída com sucesso![/]')
-                input('Digite enter para continuar ')
-            else:
-                c.print('[red]\nErro na execução![/]')
-                input('Digite enter para continuar ')
-    else:
-        c.print(Panel('[green]1[/]] - [white]Criar agendamento[/]', style='#50fa7b'))
-        if p.ask("Escolha uma das opções:", choices=["1"]):
-            c.rule('Definindo', style='#9400d3')
-            # Obter a data atual
-            data_atual = datetime.now()
-            # Formatar a data como "AAAA-MM-DD"
-            data_formatada = data_atual.strftime("%Y-%m-%d")
-            while True:
-                try:
-                    hora_usuario = p.ask("Digite a hora de execução no formato HH:MM (24h)")
-                    datetime.strptime(hora_usuario, "%H:%M")
-                    break
-                except ValueError:
-                    print("Formato de hora inválido. Use o formato HH:MM (24h).")
-            data_hora_concatenada = f"{data_formatada}T{hora_usuario}:00"
-
-            c.print("\nQual a frequência?")
-            c.print('[green]1[/]] - [white]Diariamente[/]')
-            c.print('[green]2[/]] - [white]Semanalmente[/]')
-            c.print('[green]3[/]] - [white]Mensalmente[/]')
-            c.print('[green]4[/]] - [white]A cada logon[/]')
-
-            freq = {1 : 'daily', 2 : 'weekly', 3 : 'monthly', 4 : 'onlogon'}
-            frequencia = freq[int(p.ask("Qual a frequência: ", choices=["1", "2", "3", "4"]))]
-            if add_scheduled_task(start_time=data_hora_concatenada, frequency=frequencia):
-                c.print('[green]\nTarefa agendada com sucesso![/]')
-                input('Digite enter para continuar ')
-            else:
-                c.print('[red]\nErro na execução![/]')
-                input('Digite enter para continuar ')
+    if option == "1":
+        arquivo = c.input('Caminho do arquivo: ')
+        destino = c.input('Pasta de Destino: ')
+        if danfe_pdf(arquivo, destino):
+            c.print('\n[green]DANFE gerado com sucesso![/]')
+            input('Digite enter para continuar ')
+            exibir_menu()
+        else:
+            c.print('\n[red]Erro! Não foi possível gerar o PDF.[/]')
+            input('Digite enter para continuar ')
+    elif option == "2":
+        arquivo = c.input("Pasta com os XML's: ")
+        destino = c.input('Pasta de Destino: ')
+        if diretorio_danfe_pdf(arquivo, destino):
+            c.print("\n[green]DANFE's gerados com sucesso![/]")
+            input('Digite enter para continuar ')
+            exibir_menu()
+        else:
+            c.print("\n[red]Erro! Não foi possível gerar os PDF's.[/]")
+            input('Digite enter para continuar ')         
